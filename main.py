@@ -31,8 +31,23 @@ def add_task(task, desc=None):
     todoist.add_task(content=task,
                      description=desc)
 
+@tool
+def show_tasks():
+    """
+    Show all tasks from Todoist.
+    Use this tool when user wants to see their tasks
+    :return:
+    """
+    result_paginator = todoist.get_tasks()
+    tasks = []
+    for task_list in result_paginator:
+        for task in task_list:
+            tasks.append(task.content)
+
+    return tasks
+
 #initialize the llm
-tools = [add_task]
+tools = [add_task, show_tasks]
 
 llm = ChatGoogleGenerativeAI(
     model='gemini-2.5-flash',
@@ -41,7 +56,12 @@ llm = ChatGoogleGenerativeAI(
 )
 
 #initialize prompt for the llm
-system_prompt = "You are a helpful assistant. You will help the user add tasks."
+system_prompt = """You are a helpful assistant. 
+You will help the user add tasks.
+You will help the user show existing tasks. If user asks to show the tasks:
+for example, "show me the tasks" print out the tasks to the user.
+Print out tasks in bullet list format.
+"""
 
 prompt = ChatPromptTemplate([
     ("system", system_prompt),
@@ -55,7 +75,7 @@ prompt = ChatPromptTemplate([
 
 #agent takes in the llm, tools/functions, and prompt to perform agent tasks
 agent = create_openai_tools_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
 
 # response = chain.invoke({"input":user_input})
 
@@ -70,7 +90,7 @@ while True:
     try:
         response = agent_executor.invoke({"input": user_input,
                                           "history":history})
-        print(response)
+        print(response["output"])
         history.append(HumanMessage(content=user_input))
         history.append(AIMessage(content=response["output"]))
     except Exception as e:
